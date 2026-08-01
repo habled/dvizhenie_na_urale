@@ -1499,6 +1499,110 @@ input,textarea,select{font-family:inherit;font-size:16px}
       анимация не проигрывалась дважды. Без JS правило не применяется,
       поэтому контент виден всегда. */
 html.motion-on .reveal{opacity:1;transform:none;transition:none}
+
+/* ==========================================================================
+   ИИ-помощник — переработка по профилю «AI-Native UI + Minimalism»
+   из базы ui-ux-pro-max: минимум служебного оформления, разговорная
+   компоновка, чистые пузыри с контрастом «спросил / ответил», спокойное
+   поле ввода. Фирменный синий оставлен акцентом: база прямо предостерегает
+   от «сиреневых ИИ-градиентов» для медицинской тематики.
+   ========================================================================== */
+
+/* Панель просторнее: длинные ответы врача читать удобнее */
+.ai-panel{
+  width:min(420px,calc(100vw - 24px));
+  height:min(620px,calc(100dvh - 120px));
+  border-radius:22px;overflow:hidden;
+}
+
+/* Шапка: тише и компактнее, «онлайн» — единственный акцент */
+.ai-head{padding:13px 14px;gap:10px;align-items:center}
+.ai-head .t b{font-size:14.5px;letter-spacing:-.01em}
+.ai-head .t .ai-status{font-size:11.5px;opacity:.9}
+.ai-x{border-radius:12px;transition:background .2s var(--ease)}
+.ai-x:hover{background:rgba(255,255,255,.16)}
+
+/* Лента переписки: воздуха больше, фон нейтральный */
+.ai-body{padding:16px 14px;gap:12px;background:var(--bg-soft);scroll-behavior:smooth}
+
+/* Пузыри: контраст «спросил / ответил» без лишней обводки.
+   Подпись «ответ ИИ» у каждого сообщения убрана — источник ответа один раз
+   назван в шапке, повторять его в каждом пузыре незачем. */
+.ai-msg{max-width:86%;padding:11px 15px;border-radius:16px;font-size:14px;line-height:1.55}
+.ai-msg.bot{
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--line);border-left:1px solid var(--line);
+  border-bottom-left-radius:6px;padding-left:15px;
+}
+.ai-msg.bot::after{display:none}
+.ai-msg.user{background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+
+/* Кнопки-действия внутри ответа — как «карточки контекста», не как ссылки */
+.ai-act{
+  margin:9px 7px 0 0;padding:9px 15px;border-radius:12px;font-size:12.5px;
+  border:1px solid var(--line);background:var(--bg-soft);color:var(--blue);
+}
+.ai-act:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* Индикатор набора — в том же стиле, что и пузырь ответа */
+.ai-typing{background:var(--surface);border:1px solid var(--line);border-radius:16px;border-bottom-left-radius:6px;padding:14px 15px}
+
+/* Подсказки: одна прокручиваемая строка вместо трёх рядов — лента переписки
+   получает обратно около 60px по высоте */
+.ai-chips{
+  flex-wrap:nowrap;overflow-x:auto;gap:7px;padding:10px 14px;
+  background:var(--bg-soft);border-top:1px solid var(--line);
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.ai-chip{flex:0 0 auto;white-space:nowrap;border-radius:12px;padding:9px 14px;font-size:12.5px;min-height:38px}
+
+/* Поле ввода: спокойное, с внятным фокусом и полноразмерной кнопкой */
+.ai-input{padding:10px 14px;gap:10px;align-items:center}
+.ai-input input{
+  border-radius:14px;padding:12px 15px;font-size:14.5px;min-height:44px;
+  background:var(--bg-soft);border:1px solid var(--line);
+  transition:border-color .2s var(--ease),background .2s var(--ease);
+}
+.ai-input input:focus{border-color:var(--blue);background:var(--surface)}
+.ai-send{width:44px;height:44px;border-radius:14px}
+
+/* Дисклеймер — под полем ввода, как принято в ИИ-интерфейсах: остаётся
+   на виду, но больше не занимает треть панели */
+.ai-disclaimer{
+  border-bottom:none;border-top:none;background:var(--surface);
+  padding:0 14px 11px;font-size:12px;line-height:1.4;opacity:1;
+  color:var(--muted);text-align:left;
+}
+
+/* Кнопка возврата в шапке (видна на мобильных): компактная, без чужого фона */
+.ai-home{
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);
+  color:#fff;border-radius:11px;padding:8px 12px;font-size:12.5px;font-weight:800;
+  min-height:38px;box-shadow:none;
+}
+.ai-home:hover{background:rgba(255,255,255,.26)}
+
+/* Тач-цели внутри панели — минимум 44x44 (правило базы для касаний) */
+.ai-x{width:44px;height:44px}
+.ai-chip{min-height:44px;padding:11px 14px}
+.ai-act{min-height:44px;display:inline-flex;align-items:center}
+.ai-home{min-height:44px}
+
+/* Тёмная тема: фирменный синий там осветляется, и белый текст на нём давал
+   2,55:1 — ниже нормы. Для шапки и пузыря вопроса берём глубокий оттенок. */
+[data-theme="dark"] .ai-head{background:#2E77C0}
+[data-theme="dark"] .ai-msg.user{background:#2E77C0}
+
+@media (max-width:680px){
+  .ai-panel{border-radius:20px;height:min(560px,calc(100dvh - 200px))}
+  .ai-body{padding:14px 12px}
+  .ai-msg{max-width:90%;font-size:14px}
+  .ai-chips{padding:9px 12px}
+  .ai-input{padding:9px 12px}
+  .ai-disclaimer{padding:0 12px 10px;font-size:11.5px}
+  .ai-head{flex-wrap:wrap;row-gap:8px}
+  .ai-home{order:0;padding:7px 12px;font-size:12px;min-height:44px}
+}
 </style>
 </head>
 <body>
@@ -3693,7 +3797,7 @@ document.getElementById('cb-form').addEventListener('submit', e => {
     <div class="t"><b>ИИ-помощник «Движение»</b><span class="ai-status">онлайн · отвечает нейросеть</span></div>
     <button class="ai-x" id="aiClose" aria-label="Закрыть">✕</button>
   </div>
-  <p class="ai-disclaimer">Отвечает искусственный интеллект, он может ошибаться. Ответы не являются медицинской консультацией и не заменяют приём врача. Проконсультируйтесь со специалистом.</p>
+  
   <div class="ai-body" id="aiBody"></div>
   <div class="ai-chips" id="aiChips">
     <button class="ai-chip">Болит колено</button>
@@ -3707,6 +3811,7 @@ document.getElementById('cb-form').addEventListener('submit', e => {
     <input type="text" id="aiText" placeholder="Опишите, что беспокоит…" autocomplete="off" aria-label="Ваш вопрос">
     <button class="ai-send" type="submit" aria-label="Отправить"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 11.5L21 3l-8.5 18-2.5-7.5L3 11.5z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></button>
   </form>
+  <p class="ai-disclaimer">Отвечает искусственный интеллект, он может ошибаться. Ответы не являются медицинской консультацией и не заменяют приём врача. Проконсультируйтесь со специалистом.</p>
 </div>
 
 <script>
