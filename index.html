@@ -1622,7 +1622,7 @@ html.motion-on .reveal{opacity:1;transform:none;transition:none}
 .ai-head .t{display:flex;flex-direction:column;gap:3px;min-width:0}
 .ai-head .t b{
   font-family:var(--ai-display);font-weight:700;
-  font-size:13px;letter-spacing:.13em;text-transform:uppercase;
+  font-size:14px;letter-spacing:0;text-transform:none;
   line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .ai-head .t .ai-status{
@@ -1672,13 +1672,6 @@ html.motion-on .reveal{opacity:1;transform:none;transition:none}
   position:relative;padding:9px 14px 11px;gap:6px;
   background:var(--surface);border-top:1px solid var(--line);
 }
-.ai-chips::before{
-  content:"Можно спросить";position:sticky;left:0;flex:none;
-  align-self:center;margin-right:2px;
-  font-family:var(--ai-display);font-weight:600;
-  font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--muted);white-space:nowrap;
-}
 .ai-chip{
   font-family:var(--ai-text);font-weight:500;font-size:12.5px;
   background:transparent;border:1px dashed var(--line);color:var(--muted);
@@ -1692,14 +1685,19 @@ html.motion-on .reveal{opacity:1;transform:none;transition:none}
 .ai-input input{font-family:var(--ai-text);font-weight:500}
 .ai-disclaimer{
   font-family:var(--ai-text);font-weight:400;
-  padding:0 14px 10px;font-size:11px;line-height:1.4;
-  color:var(--muted);opacity:.85;text-align:left;
+  padding:0 14px 9px;font-size:10.5px;line-height:1.35;
+  color:var(--muted);opacity:.62;text-align:left;cursor:pointer;
+  /* свёрнуто до одной строки: панель — флекс-контейнер, и он блокирует
+     -webkit-box, поэтому ограничиваем высоту, а не число строк */
+  max-height:1.4em;overflow:hidden;
+  transition:opacity .2s var(--ease),max-height .25s var(--ease);
 }
+.ai-disclaimer:hover{opacity:.9}
+.ai-disclaimer.open{max-height:8em;opacity:.9}
 
 @media (max-width:680px){
-  .ai-head .t b{font-size:12.5px;letter-spacing:.11em}
-  .ai-chips::before{display:none}
-  .ai-disclaimer{padding:0 12px 9px;font-size:10.5px}
+  .ai-head .t b{font-size:13.5px;letter-spacing:0}
+  .ai-disclaimer{padding:0 12px 8px;font-size:10px}
 }
 </style>
 </head>
@@ -4959,8 +4957,8 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
   var body = document.getElementById('aiBody');
   if (!body) return;
 
-  var TOTAL = 900;    /* примерная длительность печати, мс */
-  var MIN = 14, MAX = 34;
+  var TOTAL = 1500;   /* примерная длительность печати, мс */
+  var MIN = 1, MAX = 8;
 
   function nodesOf(el){
     var out = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
@@ -5013,6 +5011,17 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
     })();
   }
 
+  /* сноска свёрнута в одну строку; по клику разворачивается целиком */
+  var disc = document.querySelector('.ai-disclaimer');
+  if (disc){
+    disc.setAttribute('role','button');
+    disc.setAttribute('tabindex','0');
+    disc.addEventListener('click', function(){ disc.classList.toggle('open'); });
+    disc.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); disc.classList.toggle('open'); }
+    });
+  }
+
   /* по клику внутри панели печать мгновенно завершается — не заставляем ждать */
   body.addEventListener('click', function(){
     var live = body.querySelectorAll('.ai-msg.bot');
@@ -5027,10 +5036,14 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
         for (var j = 0; j < a.length; j++){
           var n = a[j];
           if (n.nodeType === 1 && n.classList && n.classList.contains('ai-msg') && n.classList.contains('bot')){
-            /* перевод сообщения выполняется на следующем кадре — стартуем печать
-               после него, иначе мы бы стёрли текст до того, как его переведут */
+            /* Перевод сообщения выполняется на следующем кадре, поэтому печать
+               стартует через два кадра — иначе текст стёрся бы до перевода.
+               На это время пузырь скрыт, чтобы полный ответ не мелькнул. */
             (function(el){
-              requestAnimationFrame(function(){ requestAnimationFrame(function(){ type(el); }); });
+              el.style.opacity = '0';
+              requestAnimationFrame(function(){ requestAnimationFrame(function(){
+                type(el); el.style.opacity = '';
+              }); });
             })(n);
           }
         }
