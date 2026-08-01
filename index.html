@@ -4585,7 +4585,7 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
           + '.sec-head, .docs-strip .eyebrow, .steps-grid > *,'
           + '.t-ico, .c-ico, .c-ic';
 
-  var BLUR = 5, SCALE = 0.93, OPACITY = 0.55, DONE = 0.995;
+  var BLUR = 9, SCALE = 0.88, OPACITY = 0.32, LIFT = 22, DONE = 0.995;
 
   var near = new Set();
   var io = null;
@@ -4594,7 +4594,7 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
     var r = el.getBoundingClientRect();
     if (!r.height) return;
     var vh = window.innerHeight || document.documentElement.clientHeight;
-    var band = Math.min(vh * 0.22, 180);          /* краевая зона «пробуждения» */
+    var band = Math.min(vh * 0.34, 300);          /* краевая зона «пробуждения» */
     var doc = document.documentElement;
     var maxScroll = Math.max(0, doc.scrollHeight - vh);
     var y = window.pageYOffset || doc.scrollTop || 0;
@@ -4609,12 +4609,18 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
     var e = p * p * (3 - 2 * p);
 
     if (e >= DONE){
-      if (el.__dvDim){ el.style.filter=''; el.style.transform=''; el.style.opacity=''; el.__dvDim=0; }
+      if (el.__dvDim){ el.style.filter=''; el.style.transform=''; el.style.opacity=''; el.__dvDim=0; el.__dvE=-1; }
       return;
     }
+    /* округляем шаг: размытие — самая дорогая операция отрисовки, и нет смысла
+       перерисовывать блок, пока значение почти не изменилось */
+    e = Math.round(e * 40) / 40;
+    if (el.__dvDim && el.__dvE === e) return;
+    el.__dvE = e;
     el.__dvDim = 1;
+    var lift = (1 - e) * LIFT;                     /* лёгкий подъём: блок «выезжает» вперёд */
     el.style.filter    = 'blur(' + ((1 - e) * BLUR).toFixed(2) + 'px)';
-    el.style.transform = 'scale(' + (SCALE + e * (1 - SCALE)).toFixed(4) + ')';
+    el.style.transform = 'translateY(' + lift.toFixed(1) + 'px) scale(' + (SCALE + e * (1 - SCALE)).toFixed(4) + ')';
     el.style.opacity   = (OPACITY + e * (1 - OPACITY)).toFixed(3);
   }
 
