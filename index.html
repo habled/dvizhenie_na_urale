@@ -4487,52 +4487,7 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
 
 </script>
 
-<script id="motion-init">
-/* Появление блоков каскадом — пресет «Stagger List» из базы ui-ux-pro-max:
-   300-450 мс, ease-out, эффект на один смысловой блок в экране.
-   Полностью отключается при системной настройке «уменьшить движение». */
-(function(){
-  var M = window.Motion;
-  if (!M || !M.animate || !M.inView || !M.stagger) return;
-  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  var EASE = [0.22,0.61,0.36,1];   /* мягкий ease-out, совпадает с --ease сайта */
-  var DUR = 0.42, STEP = 0.06;     /* 420 мс, каскад 60 мс */
-  var BOXES = ['.tiles','.docs-grid','.card-grid','.rev-grid','.steps-grid','.promo-grid'];
-  var hidden = [];
-
-  function clear(el){ el.style.opacity=''; el.style.transform=''; el.style.willChange=''; }
-
-  try {
-    document.documentElement.classList.add('motion-on');
-    BOXES.forEach(function(sel){
-      Array.prototype.forEach.call(document.querySelectorAll(sel), function(box){
-        var items = Array.prototype.filter.call(box.children, function(c){ return c.nodeType === 1; });
-        if (!items.length) return;
-        items.forEach(function(el){
-          el.style.opacity = '0';
-          el.style.transform = 'translateY(16px)';
-          el.style.willChange = 'opacity, transform';
-          hidden.push(el);
-        });
-        var stop = M.inView(box, function(){
-          if (stop) stop();
-          M.animate(items,
-            { opacity:[0,1], transform:['translateY(16px)','translateY(0px)'] },
-            { duration:DUR, delay:M.stagger(STEP), ease:EASE }
-          ).finished.then(function(){ items.forEach(clear); },function(){ items.forEach(clear); });
-          items.forEach(function(el){ var i = hidden.indexOf(el); if (i > -1) hidden.splice(i,1); });
-        });
-      });
-    });
-    /* подстраховка: ничего не должно остаться невидимым */
-    setTimeout(function(){ hidden.splice(0).forEach(clear); }, 6000);
-  } catch (e) {
-    document.documentElement.classList.remove('motion-on');
-    hidden.splice(0).forEach(clear);
-  }
-})();
-</script>
 
 <script id="i18n-attrs">
 /* Перевод атрибутов (alt, aria-label, placeholder, title).
@@ -4613,73 +4568,117 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
 })();
 </script>
 
-<script id="icon-scroll">
-/* Иконки: появляются при прокрутке вниз и плавно исчезают при прокрутке вверх.
-   Затрагиваются только декоративные значки (плитки, контакты) — служебные
-   кнопки (тема, меню, отправка) остаются видимыми всегда.
-   При системной настройке «уменьшить движение» скрипт не запускается. */
+
+
+<script id="scroll-depth">
+/* Плитки, карточки и иконки во всех вкладках: пока блок виден не полностью —
+   он приглушён, слегка размыт и отодвинут вглубь. По мере полного появления
+   он «выезжает» вперёд, размытие уходит. При прокрутке вверх — то же самое
+   в обратном порядке. Эффект связан с прокруткой, поэтому обратим в любой момент.
+   При системной настройке «уменьшить движение» не запускается. */
 (function(){
-  var M = window.Motion;
-  if (!M || !M.animate) return;
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  var SEL = '.t-ico, .c-ico, .c-ic';
-  var els = Array.prototype.slice.call(document.querySelectorAll(SEL));
-  if (!els.length) return;
+  var SEL = '.tile, .card, .doc-card, .rev-card, .promo-card, .svc-cat, .faq-item,'
+          + '.plat-card, .c-item, .mode-opt, .price-row, .hero-chip,'
+          + '.t-ico, .c-ico, .c-ic';
 
-  var EASE = [0.22,0.61,0.36,1];
-  var HIDDEN = 'translateY(10px) scale(.86)';
-  var SHOWN  = 'translateY(0px) scale(1)';
-  var state = new WeakMap();
+  var BLUR = 5;        /* максимальное размытие, px */
+  var SCALE = 0.93;    /* насколько отодвинут в самой дальней точке */
+  var OPACITY = 0.55;  /* насколько приглушён */
+  var DONE = 0.995;    /* с этого момента считаем, что блок виден целиком */
 
-  var lastY = window.pageYOffset || 0, dir = 'down';
-  addEventListener('scroll', function(){
-    var y = window.pageYOffset || 0;
-    if (y !== lastY){ dir = y > lastY ? 'down' : 'up'; lastY = y; }
-  }, {passive:true});
+  var near = new Set();
+  var io = null;
 
-  function show(el){
-    if (state.get(el) === 'in') return;
-    state.set(el, 'in');
-    M.animate(el, {opacity:[0,1], transform:[HIDDEN, SHOWN]}, {duration:0.42, ease:EASE});
-  }
-  function hide(el){
-    if (state.get(el) === 'out') return;
-    state.set(el, 'out');
-    M.animate(el, {opacity:[1,0], transform:[SHOWN, HIDDEN]}, {duration:0.3, ease:EASE});
-  }
-
-  /* стартовое состояние: прячем только то, что ниже первого экрана */
-  els.forEach(function(el){
+  function paintOne(el){
     var r = el.getBoundingClientRect();
-    if (r.height && r.top > innerHeight * 0.9){
-      el.style.opacity = '0'; el.style.transform = HIDDEN; state.set(el, 'out');
-    } else {
-      state.set(el, 'in');
-    }
-  });
+    if (!r.height){ return; }
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var shown = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    var p = shown / Math.min(r.height, vh);
+    p = p < 0 ? 0 : (p > 1 ? 1 : p);
+    var e = p * p * (3 - 2 * p);           /* сглаживание, без рывков на краях */
 
-  try{
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){
-        if (e.isIntersecting) show(e.target);
-        /* прячем только при движении вверх и только если элемент ушёл вниз за край */
-        else if (dir === 'up' && e.boundingClientRect.top > 0) hide(e.target);
-      });
-    }, {threshold:0.25});
-    els.forEach(function(el){ io.observe(el); });
-  }catch(e){
-    els.forEach(function(el){ el.style.opacity=''; el.style.transform=''; });
+    if (e >= DONE){
+      if (el.__dvDim){ el.style.filter=''; el.style.transform=''; el.style.opacity=''; el.__dvDim=0; }
+      return;
+    }
+    el.__dvDim = 1;
+    el.style.filter    = 'blur(' + ((1 - e) * BLUR).toFixed(2) + 'px)';
+    el.style.transform = 'scale(' + (SCALE + e * (1 - SCALE)).toFixed(4) + ')';
+    el.style.opacity   = (OPACITY + e * (1 - OPACITY)).toFixed(3);
   }
 
-  /* страховка: иконка не должна остаться невидимой, если наблюдатель не сработал */
-  setInterval(function(){
-    els.forEach(function(el){
-      if (state.get(el) !== 'out') return;
-      var r = el.getBoundingClientRect();
-      if (r.height && r.top < innerHeight * 0.85 && r.bottom > 0) show(el);
-    });
-  }, 1500);
+  function paint(){ near.forEach(paintOne); }
+
+  var ticking = false;
+  function schedule(){
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function(){ ticking = false; paint(); });
+  }
+
+  function track(root){
+    var scope = root && root.querySelectorAll ? root : document;
+    var list = scope.querySelectorAll(SEL);
+    for (var i = 0; i < list.length; i++){
+      var el = list[i];
+      if (el.__dvTracked) continue;
+      el.__dvTracked = 1;
+      el.style.transition = 'none';        /* глубиной управляет прокрутка, не переход */
+      if (io) io.observe(el);
+    }
+    if (root && root.matches && root.matches(SEL) && !root.__dvTracked){
+      root.__dvTracked = 1; root.style.transition='none'; if (io) io.observe(root);
+    }
+  }
+
+  function reset(el){ el.style.filter=''; el.style.transform=''; el.style.opacity=''; el.__dvDim=0; }
+
+  try {
+    document.documentElement.classList.add('motion-on');   /* отключает прежний CSS-показ */
+    io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting) near.add(en.target);
+        else near.delete(en.target);
+      });
+      schedule();
+    }, {rootMargin: '300px 0px'});
+
+    track(document);
+    schedule();
+
+    addEventListener('scroll', schedule, {passive:true});
+    addEventListener('resize', schedule);
+    addEventListener('hashchange', function(){ setTimeout(schedule, 60); });
+    addEventListener('load', function(){ track(document); schedule(); });
+
+    /* новые блоки: карточки врачей, строки прайса, модалки */
+    new MutationObserver(function(muts){
+      for (var i = 0; i < muts.length; i++){
+        var a = muts[i].addedNodes;
+        for (var j = 0; j < a.length; j++) if (a[j].nodeType === 1) track(a[j]);
+      }
+      schedule();
+    }).observe(document.body, {childList:true, subtree:true});
+
+    /* страховка: ничего не должно остаться приглушённым, если наблюдатель молчит */
+    setInterval(function(){
+      var vh = window.innerHeight || 0;
+      var all = document.querySelectorAll(SEL);
+      for (var i = 0; i < all.length; i++){
+        var el = all[i];
+        if (!el.__dvDim) continue;
+        var r = el.getBoundingClientRect();
+        if (r.height && r.top >= 0 && r.bottom <= vh) reset(el);
+      }
+    }, 2000);
+  } catch (e) {
+    document.documentElement.classList.remove('motion-on');
+    var all = document.querySelectorAll(SEL);
+    for (var i = 0; i < all.length; i++) reset(all[i]);
+  }
 })();
 </script>
 </body>
