@@ -4571,34 +4571,42 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
 
 
 <script id="scroll-depth">
-/* Плитки, карточки и иконки во всех вкладках: пока блок виден не полностью —
-   он приглушён, слегка размыт и отодвинут вглубь. По мере полного появления
-   он «выезжает» вперёд, размытие уходит. При прокрутке вверх — то же самое
-   в обратном порядке. Эффект связан с прокруткой, поэтому обратим в любой момент.
+/* Глубина при прокрутке. Пока блок не «вышел» из краевой зоны экрана — он
+   приглушён, слегка размыт и отодвинут; в середине экрана становится чётким
+   и выезжает вперёд. Работает симметрично: и когда листаешь вниз, и когда
+   вверх. Шкала считается от расстояния до краёв, а не от доли самого блока,
+   иначе мелкие элементы (иконки) успевали бы «проснуться» мгновенно.
    При системной настройке «уменьшить движение» не запускается. */
 (function(){
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  var SEL = '.tile, .card, .doc-card, .rev-card, .promo-card, .svc-cat, .faq-item,'
-          + '.plat-card, .c-item, .mode-opt, .price-row, .hero-chip,'
+  var SEL = '.tile, .card, .doc-card, .doc-chip, .rev-card, .promo-card, .svc-cat,'
+          + '.faq-item, .plat-card, .c-item, .mode-opt, .price-row, .hero-chip,'
+          + '.sec-head, .docs-strip .eyebrow, .steps-grid > *,'
           + '.t-ico, .c-ico, .c-ic';
 
-  var BLUR = 5;        /* максимальное размытие, px */
-  var SCALE = 0.93;    /* насколько отодвинут в самой дальней точке */
-  var OPACITY = 0.55;  /* насколько приглушён */
-  var DONE = 0.995;    /* с этого момента считаем, что блок виден целиком */
+  var BLUR = 5, SCALE = 0.93, OPACITY = 0.55, DONE = 0.995;
 
   var near = new Set();
   var io = null;
 
   function paintOne(el){
     var r = el.getBoundingClientRect();
-    if (!r.height){ return; }
+    if (!r.height) return;
     var vh = window.innerHeight || document.documentElement.clientHeight;
-    var shown = Math.min(r.bottom, vh) - Math.max(r.top, 0);
-    var p = shown / Math.min(r.height, vh);
-    p = p < 0 ? 0 : (p > 1 ? 1 : p);
-    var e = p * p * (3 - 2 * p);           /* сглаживание, без рывков на краях */
+    var band = Math.min(vh * 0.22, 180);          /* краевая зона «пробуждения» */
+    var doc = document.documentElement;
+    var maxScroll = Math.max(0, doc.scrollHeight - vh);
+    var y = window.pageYOffset || doc.scrollTop || 0;
+
+    /* у самого верха и низа страницы прокрутки больше нет — там не приглушаем,
+       иначе нижние блоки остались бы размытыми навсегда */
+    var fromBottom = (y >= maxScroll - 2) ? 9 : (vh - r.top) / band;
+    var fromTop    = (y <= 2)             ? 9 : r.bottom / band;
+
+    var p = Math.min(fromBottom, fromTop, 1);
+    p = p < 0 ? 0 : p;
+    var e = p * p * (3 - 2 * p);
 
     if (e >= DONE){
       if (el.__dvDim){ el.style.filter=''; el.style.transform=''; el.style.opacity=''; el.__dvDim=0; }
@@ -4619,42 +4627,42 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
     requestAnimationFrame(function(){ ticking = false; paint(); });
   }
 
+  function add(el){
+    if (!el || el.nodeType !== 1 || el.__dvTracked) return;
+    /* вложенные блоки не трогаем: размытие родителя и так покрывает содержимое,
+       иначе оно наложилось бы дважды */
+    if (el.parentElement && el.parentElement.closest && el.parentElement.closest(SEL)) return;
+    el.__dvTracked = 1;
+    el.style.transition = 'none';
+    if (io) io.observe(el);
+  }
   function track(root){
     var scope = root && root.querySelectorAll ? root : document;
+    /* сам узел тоже может быть нужным блоком — карточки врачей и строки прайса
+       создаются скриптом и приходят сюда поштучно */
+    if (scope.matches && scope.matches(SEL)) add(scope);
     var list = scope.querySelectorAll(SEL);
-    for (var i = 0; i < list.length; i++){
-      var el = list[i];
-      if (el.__dvTracked) continue;
-      el.__dvTracked = 1;
-      el.style.transition = 'none';        /* глубиной управляет прокрутка, не переход */
-      if (io) io.observe(el);
-    }
-    if (root && root.matches && root.matches(SEL) && !root.__dvTracked){
-      root.__dvTracked = 1; root.style.transition='none'; if (io) io.observe(root);
-    }
+    for (var i = 0; i < list.length; i++) add(list[i]);
   }
 
   function reset(el){ el.style.filter=''; el.style.transform=''; el.style.opacity=''; el.__dvDim=0; }
 
   try {
-    document.documentElement.classList.add('motion-on');   /* отключает прежний CSS-показ */
+    document.documentElement.classList.add('motion-on');
     io = new IntersectionObserver(function(entries){
       entries.forEach(function(en){
-        if (en.isIntersecting) near.add(en.target);
-        else near.delete(en.target);
+        if (en.isIntersecting) near.add(en.target); else near.delete(en.target);
       });
       schedule();
     }, {rootMargin: '300px 0px'});
 
-    track(document);
-    schedule();
+    track(document); schedule();
 
     addEventListener('scroll', schedule, {passive:true});
     addEventListener('resize', schedule);
-    addEventListener('hashchange', function(){ setTimeout(schedule, 60); });
+    addEventListener('hashchange', function(){ setTimeout(function(){ track(document); schedule(); }, 60); });
     addEventListener('load', function(){ track(document); schedule(); });
 
-    /* новые блоки: карточки врачей, строки прайса, модалки */
     new MutationObserver(function(muts){
       for (var i = 0; i < muts.length; i++){
         var a = muts[i].addedNodes;
@@ -4663,7 +4671,6 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
       schedule();
     }).observe(document.body, {childList:true, subtree:true});
 
-    /* страховка: ничего не должно остаться приглушённым, если наблюдатель молчит */
     setInterval(function(){
       var vh = window.innerHeight || 0;
       var all = document.querySelectorAll(SEL);
@@ -4671,14 +4678,65 @@ var DICT_EN = {"Клиника «Движение»": "Dvizhenie Clinic", "Ни�
         var el = all[i];
         if (!el.__dvDim) continue;
         var r = el.getBoundingClientRect();
-        if (r.height && r.top >= 0 && r.bottom <= vh) reset(el);
+        if (r.height && r.top > vh * 0.25 && r.bottom < vh * 0.75) reset(el);
       }
-    }, 2000);
+    }, 2500);
   } catch (e) {
     document.documentElement.classList.remove('motion-on');
     var all = document.querySelectorAll(SEL);
     for (var i = 0; i < all.length; i++) reset(all[i]);
   }
+})();
+</script>
+
+<script id="nbsp-fit">
+/* Скрипт типографики связывает слова неразрывным пробелом, чтобы короткие
+   предлоги не оставались в конце строки. В узких колонках это склеивает фразу
+   в один неразрывный кусок, и текст вылезает за карточку («Консультация
+   и диагностика» — 343px в колонке 230px). Здесь такие места находятся по факту
+   переполнения, и только в них неразрывный пробел заменяется обычным.
+   Типографика сохраняется везде, где она помещается. */
+(function(){
+  var NB = String.fromCharCode(160);
+  var reNB = new RegExp(NB, 'g');
+  var SEL = 'h1,h2,h3,h4,h5,p,li,figcaption,blockquote,td,th,dd,dt,b,strong,em,span,a,button';
+
+  function relax(el){
+    var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    var n, changed = false;
+    while (n = w.nextNode()){
+      if (n.nodeValue.indexOf(NB) === -1) continue;
+      n.nodeValue = n.nodeValue.replace(reNB, ' ');
+      changed = true;
+    }
+    return changed;
+  }
+
+  function pass(root){
+    var scope = root && root.querySelectorAll ? root : document;
+    var els = scope.querySelectorAll(SEL);
+    for (var i = 0; i < els.length; i++){
+      var el = els[i];
+      if (!el.offsetParent) continue;                       /* скрыт — размеры не значимы */
+      if (el.clientWidth === 0) continue;
+      if (el.scrollWidth - el.clientWidth <= 1) continue;    /* помещается */
+      if (getComputedStyle(el).whiteSpace === 'nowrap') continue;
+      relax(el);
+    }
+  }
+
+  var t = null;
+  function schedule(){ clearTimeout(t); t = setTimeout(function(){ pass(document); }, 120); }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
+  else schedule();
+  addEventListener('load', schedule);
+  addEventListener('resize', schedule);
+  addEventListener('hashchange', schedule);
+
+  try{
+    new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true});
+  }catch(e){}
 })();
 </script>
 </body>
